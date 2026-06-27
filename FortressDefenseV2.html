@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>要塞防禦：六大核心奇蹟（動態圖片防錯版）</title>
+    <title>要塞防禦：六大核心奇蹟（圖像去背極致優化版）</title>
     <style>
         body {
             margin: 0;
@@ -273,7 +273,7 @@
                 <li><span class="highlight-gold">💰 煉金金庫：</span> 屬於經濟發電廠。每隔 7 秒自動派發利息，產出額度為 <span class="highlight-cyan">$15 × 金庫等級</span>。Lv.5 時每期可穩定賺進 $75！</li>
                 <li><span class="highlight-cyan">❤️ 聖光治癒：</span> 基地守護神。每當順利撐過 60 秒進入下一個波次時，會自動為基地恢復與<span class="highlight-gold">「防禦塔等級等量」</span>的生命值。</li>
                 <li><span class="highlight-cyan">❄️ 寒冰法師：</span> 緩速控制核心。升級能直接加強暴風雪的黏著度，最高可將強敵的移動速度重度壓制 <span class="highlight-gold">85% 緩速</span>。</li>
-                <li><span class="highlight-cyan">❄️ 閃電連鎖：</span> 群體清除利器。每次轟擊會釋放連鎖電網，自動朝周圍額外 3名敵人進行彈射，造成主彈頭 70% 的擴散雷擊。</li>
+                <li><span class="highlight-cyan">⚡ 閃電連鎖：</span> 群體清除利器。每次轟擊會釋放連鎖電網，自動朝周圍額外 3 名敵人進行彈射，造成主彈頭 70% 的擴散雷擊。</li>
             </ul>
         </div>
     </div>
@@ -295,40 +295,93 @@
     let lastTouchDist = 0; 
     let screenShakeTimer = 0;
 
-    // --- 圖片加載與動態降級機制 ---
-    let spriteSheet = new Image();
-    let isSpriteLoaded = false;
-    spriteSheet.src = 'game_sprites.png';
-    
-    spriteSheet.onload = function() {
-        isSpriteLoaded = true;
-    };
-    spriteSheet.onerror = function() {
-        console.warn("無法加載 game_sprites.png，自動降級為系統內建 Emoji。");
-        isSpriteLoaded = false;
+    // 離屏 Canvas 用於動態綠幕去背處理
+    let spritesLoaded = false;
+    let transparentSpritesCanvas = null;
+    const spriteImg = new Image();
+    spriteImg.src = 'game_sprites.png'; 
+    spriteImg.onload = function() {
+        processChromaKey();
     };
 
-    // 對應圖案的 Emoji 備用字典
-    const EMOJI_MAP = {
-        fortress: '🏰', 
-        cannon:   '🤖', 
-        arrow:    '🧙‍♂️', 
-        ice:      '❄️', 
-        tesla:    '⚡', 
-        gold:     '💰', 
-        heal:     '❤️'  
+    // 綠色去背核心演算法
+    function processChromaKey() {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = spriteImg.width;
+        offCanvas.height = spriteImg.height;
+        const offCtx = offCanvas.getContext('2d');
+        offCtx.drawImage(spriteImg, 0, 0);
+
+        try {
+            const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+            const data = imgData.data;
+            // 遍歷像素去除綠色底
+            for (let i = 0; i < data.length; i += 4) {
+                let r = data[i];
+                let g = data[i+1];
+                let b = data[i+2];
+                // 如果綠色成分明顯大於紅藍，視為背景直接完全透明化
+                if (g > 110 && g > r * 1.2 && g > b * 1.2) {
+                    data[i+3] = 0; 
+                }
+            }
+            offCtx.putImageData(imgData, 0, 0);
+            transparentSpritesCanvas = offCanvas;
+            spritesLoaded = true;
+        } catch (e) {
+            // 本地跨域限制的安全備用方案
+            transparentSpritesCanvas = spriteImg;
+            spritesLoaded = true;
+        }
+    }
+
+    // 定義切圖九宮格位置與原本 Emoji 的映射關係 (3x2 矩陣)
+    const SPRITE_MAP = {
+        'castle': { col: 0, row: 0 }, // 城堡
+        'cannon': { col: 1, row: 0 }, // 巨神兵
+        'arrow':  { col: 2, row: 0 }, // 魔法師
+        'ice':    { col: 0, row: 1 }, // 寒冰法師
+        'tesla':  { col: 1, row: 1 }, // 閃電忍者
+        'gold':   { col: 2, row: 1 }, // 煉金金庫 (圖左)
+        'heal':   { col: 2, row: 1 }  // 聖光治癒 (圖右共用同一格)
     };
 
-    // 圖片圖集的切片位置設定 (X 軸偏移, Y 軸偏移, 寬, 高)
-    const SPRITE_SRC_RECT = {
-        fortress: {x: 0, y: 0, w: 64, h: 64},
-        arrow:    {x: 64, y: 0, w: 64, h: 64},
-        cannon:   {x: 128, y: 0, w: 64, h: 64},
-        ice:      {x: 192, y: 0, w: 64, h: 64},
-        tesla:    {x: 256, y: 0, w: 64, h: 64},
-        gold:     {x: 320, y: 0, w: 64, h: 64},
-        heal:     {x: 384, y: 0, w: 64, h: 64}
-    };
+    // 繪製去背角色圖的封裝函數
+    function drawSprite(key, cx, cy, targetSize) {
+        if (!spritesLoaded || !transparentSpritesCanvas) return false;
+        
+        const map = SPRITE_MAP[key];
+        if (!map) return false;
+
+        // 計算單格原圖寬高
+        const sWidth = spriteImg.width / 3;
+        const sHeight = spriteImg.height / 2;
+        let sx = map.col * sWidth;
+        let sy = map.row * sHeight;
+        let sw = sWidth;
+        let sh = sHeight;
+
+        // 特殊處理最後一格切分(金庫與治癒)
+        if (key === 'gold') {
+            sw = sWidth / 2;
+        } else if (key === 'heal') {
+            sx += sWidth / 2;
+            sw = sWidth / 2;
+        }
+
+        // 等比例置中縮放與調整
+        let aspect = sw / sh;
+        let dw = targetSize;
+        let dh = targetSize / aspect;
+
+        ctx.drawImage(
+            transparentSpritesCanvas, 
+            sx, sy, sw, sh, 
+            cx - dw / 2, cy - dh / 2 - (key === 'castle' ? 10 * cameraZoom : 0), 
+            dw, dh
+        );
+        return true;
+    }
 
     const mapGrid = [
         [0,0,0,0,0,0,0,0,0],
@@ -409,12 +462,12 @@
     let waveTimerCounter = 0;
 
     const TOWER_TYPES = {
-        arrow: { name: "魔法師", cost: 50, projectile: '⚡', damage: 22, range: 130, cd: 900, isUtility: false },
-        cannon: { name: "巨神兵", cost: 100, projectile: '🔥', damage: 55, range: 110, cd: 1600, isUtility: false },
-        ice: { name: "寒冰法師", cost: 75, projectile: '❄️', damage: 12, range: 125, cd: 1000, isUtility: false },
-        tesla: { name: "閃電連鎖", cost: 120, projectile: '✨', damage: 18, range: 140, cd: 1200, isUtility: false },
-        gold: { name: "煉金金庫", cost: 150, projectile: '', damage: 0, range: 0, cd: 7000, isUtility: true },
-        heal: { name: "聖光治癒", cost: 200, projectile: '', damage: 0, range: 0, cd: 0, isUtility: true }
+        arrow: { name: "魔法師", cost: 50, emoji: '🧙‍♂️', projectile: '⚡', damage: 22, range: 130, cd: 900, isUtility: false },
+        cannon: { name: "巨神兵", cost: 100, emoji: '🤖', projectile: '🔥', damage: 55, range: 110, cd: 1600, isUtility: false },
+        ice: { name: "寒冰法師", cost: 75, emoji: '❄️', projectile: '❄️', damage: 12, range: 125, cd: 1000, isUtility: false },
+        tesla: { name: "閃電連鎖", cost: 120, emoji: '⚡', projectile: '✨', damage: 18, range: 140, cd: 1200, isUtility: false },
+        gold: { name: "煉金金庫", cost: 150, emoji: '💰', projectile: '', damage: 0, range: 0, cd: 7000, isUtility: true },
+        heal: { name: "聖光治癒", cost: 200, emoji: '❤️', projectile: '', damage: 0, range: 0, cd: 0, isUtility: true }
     };
 
     let audioCtx = null;
@@ -624,7 +677,7 @@
 
                         updateUI();
                         autoSave();
-                        playSound('merge'); 
+                        playSound('merge');
                         alert("🎉 本地端 JSON 存檔載入完成！防線已完美對齊。");
                     } else {
                         alert("❌ 導入失敗：該 JSON 文件的數據結構與遊戲不吻合！");
@@ -635,6 +688,7 @@
             };
             reader.readAsText(file);
         };
+
         fileInput.click();
     }
 
@@ -991,34 +1045,6 @@
         }
     }
 
-    // ========================================================
-    // 🎨 動態繪圖核心：如果圖片加載完成則畫圖，失敗則自動補償為 Emoji
-    // ========================================================
-    function drawSpriteOrEmoji(key, cx, cy, size = 32) {
-        if (isSpriteLoaded && SPRITE_SRC_RECT[key]) {
-            // 模式 A: 畫圖集圖片 (自動套用 cameraZoom)
-            let rect = SPRITE_SRC_RECT[key];
-            let drawW = size * cameraZoom * 1.2;
-            let drawH = size * cameraZoom * 1.2;
-            ctx.drawImage(
-                spriteSheet,
-                rect.x, rect.y, rect.w, rect.h, // 來源裁切區
-                cx - drawW / 2, cy - drawH / 2 - (4 * cameraZoom), // 畫布繪製區 (微調上移)
-                drawW, drawH
-            );
-        } else {
-            // 模式 B: 動態降級，改用內建 Emoji 向量文字
-            const symbol = EMOJI_MAP[key];
-            if (!symbol) return;
-            ctx.save();
-            ctx.font = `${Math.round(size * cameraZoom)}px Arial, sans-serif`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(symbol, cx, cy - 6 * cameraZoom);
-            ctx.restore();
-        }
-    }
-
     function renderScene() {
         ctx.fillStyle = '#4ea8de'; ctx.fillRect(0, 0, canvas.width, canvas.height);
         let gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 20, canvas.width/2, canvas.height/2, 460);
@@ -1043,16 +1069,30 @@
                 let tower = gameState.towers.find(t => t.x === c && t.y === r);
                 if (tower && tower !== draggedTower) {
                     let center = logicalToCanvas((c - COLS/2 + 0.5) * 44, (r - ROWS/2 + 0.5) * 44);
-                    drawSpriteOrEmoji(tower.type, center.x, center.y, 32);
+                    let targetSize = 46 * cameraZoom;
+
+                    // 優先使用圖片渲染，失敗時以 Emoji 備用
+                    let success = drawSprite(tower.type, center.x, center.y, targetSize);
+                    if (!success) {
+                        let cfg = TOWER_TYPES[tower.type];
+                        ctx.font = `${Math.round(28 * cameraZoom)}px sans-serif`;
+                        ctx.textBaseline = "bottom"; ctx.textAlign = "center";
+                        ctx.fillText(cfg.emoji, center.x, center.y + 6 * cameraZoom);
+                    }
 
                     ctx.font = `bold ${Math.round(11 * cameraZoom)}px sans-serif`;
                     ctx.fillStyle = '#03045e';
-                    ctx.fillText(`Lv.${tower.level}`, center.x, center.y - 24 * cameraZoom);
+                    ctx.fillText(`Lv.${tower.level}`, center.x, center.y - 20 * cameraZoom);
                 }
 
                 if (type === 2) {
                     let center = logicalToCanvas((c - COLS/2 + 0.5) * 44, (r - ROWS/2 + 0.5) * 44);
-                    drawSpriteOrEmoji('fortress', center.x, center.y, 44);
+                    let targetSize = 65 * cameraZoom;
+                    let success = drawSprite('castle', center.x, center.y, targetSize);
+                    if (!success) {
+                        ctx.font = `${Math.round(38 * cameraZoom)}px sans-serif`;
+                        ctx.fillText('🏰', center.x, center.y + 8 * cameraZoom);
+                    }
                 }
             }
         }
@@ -1081,10 +1121,16 @@
 
         if (draggedTower) {
             ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.4)";
-            drawSpriteOrEmoji(draggedTower.type, dragMX, dragMY, 38);
+            let targetSize = 54 * cameraZoom;
+            let success = drawSprite(draggedTower.type, dragMX, dragMY, targetSize);
+            if (!success) {
+                let cfg = TOWER_TYPES[draggedTower.type];
+                ctx.font = `${Math.round(36 * cameraZoom)}px sans-serif`; 
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.fillText(cfg.emoji, dragMX, dragMY - 15); 
+            }
             ctx.font = `bold 12px sans-serif`; ctx.fillStyle = '#f59e0b';
-            ctx.textAlign = "center";
-            ctx.fillText(`Lv.${draggedTower.level}`, dragMX, dragMY - 22);
+            ctx.fillText(`Lv.${draggedTower.level}`, dragMX, dragMY - 40);
             ctx.restore();
         }
 
