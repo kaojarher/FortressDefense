@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>要塞防禦：六大核心奇蹟（JSON 存檔文件化版）</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0077b6;
+            font-family: 'SF Pro Display', -apple-system, 'Segoe UI', Roboto, sans-serif;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-sizing: border-box;
+            padding-bottom: 30px;
+            user-select: none;
+            overflow-y: auto;
+        }
+
+        #ui-panel {
+            width: 100%;
+            max-width: 950px;
+            background-color: rgba(3, 4, 94, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 14px 20px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            border-bottom: 4px solid #90e0ef;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .stats-box { font-size: 16px; font-weight: bold; }
+        .stats-box span { color: #00f5d4; }
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+        .btn {
+            background: linear-gradient(135deg, #0096c7, #0077b6);
+            border: 1px solid #90e0ef;
+            color: white;
+            padding: 8px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            border-radius: 6px;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(144,224,239,0.4); }
+        .btn-success { background: linear-gradient(135deg, #059669, #047857); border-color: #a7f3d0; }
+        .btn-warning { background: linear-gradient(135deg, #d97706, #b45309); border-color: #fde68a; }
+        .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); border-color: #fca5a5; }
+        .btn-music { background: linear-gradient(135deg, #ef4444, #cc3333); border-color: #fca5a5; }
+
+        #game-container {
+            width: 100%;
+            max-width: 950px;
+            position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            background-color: #4ea8de;
+            aspect-ratio: 16 / 10;
+            touch-action: none;
+            margin-top: 10px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        #control-panel {
+            width: 100%;
+            max-width: 950px;
+            background-color: rgba(3, 4, 94, 0.95);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-sizing: border-box;
+            border-radius: 12px;
+            margin-top: 10px;
+            align-items: center;
+        }
+
+        .shop-container { 
+            display: flex; 
+            gap: 8px; 
+            align-items: center; 
+            flex-wrap: wrap; 
+            margin-bottom: 4px;
+            justify-content: center;
+        }
+
+        .shop-item {
+            background: #0077b6;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 13px;
+            border: 2px solid #90e0ef;
+            transition: all 0.15s;
+        }
+        .shop-item.active {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #0096c7, #023e8a);
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+        }
+
+        .tip-text { color: #90e0ef; font-size: 13px; text-align: left; width: 100%; line-height: 1.6; }
+
+        /* 戰術學院指南面板樣式 */
+        #guide-panel {
+            width: 100%;
+            max-width: 950px;
+            background-color: rgba(2, 62, 138, 0.9);
+            border: 2px solid #00b4d8;
+            border-radius: 12px;
+            margin-top: 15px;
+            box-sizing: border-box;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+        }
+
+        .guide-tabs {
+            display: flex;
+            background-color: rgba(3, 4, 94, 0.6);
+            border-bottom: 2px solid #00b4d8;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            background: none;
+            border: none;
+            color: #90e0ef;
+            font-weight: bold;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+        .tab-btn:hover { background-color: rgba(0, 180, 216, 0.2); color: #fff; }
+        .tab-btn.active {
+            background-color: #00b4d8;
+            color: #03045e;
+        }
+
+        .guide-content {
+            padding: 16px;
+            display: none;
+            animation: fadeIn 0.3s ease-in-out forwards;
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        .guide-content.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .guide-content h3 { margin-top: 0; color: #00f5d4; font-size: 16px; border-left: 4px solid #00f5d4; padding-left: 8px; }
+        .guide-content ul { margin: 8px 0; padding-left: 20px; }
+        .guide-content li { margin-bottom: 6px; }
+
+        .guide-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background-color: rgba(3, 4, 94, 0.4);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        .guide-table th, .guide-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(144, 224, 239, 0.2);
+        }
+        .guide-table th { background-color: rgba(0, 119, 182, 0.6); color: #00f5d4; }
+        .highlight-gold { color: #f59e0b; font-weight: bold; }
+        .highlight-cyan { color: #00f5d4; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <div id="ui-panel">
+        <div class="stats-box">
+            波次: <span id="lbl-wave">1</span> | 
+            倒數: <span id="lbl-time">60</span>s | 
+            金幣: $<span id="lbl-gold">300</span> | 
+            基地血量: <span id="lbl-hp">20</span>/20
+        </div>
+        <div class="btn-group">
+            <button id="btn-audio" class="btn btn-music" onclick="toggleMusic()">🔇 音樂：靜音 (點擊解鎖)</button>
+            <button class="btn btn-success" onclick="exportGame()">💾 導出存檔 (.json)</button>
+            <button class="btn btn-warning" onclick="importGame()">📂 導入存檔 (.json)</button>
+            <button class="btn btn-danger" onclick="resetGame()">重設防線</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="950" height="594"></canvas>
+    </div>
+
+    <div id="control-panel">
+        <div class="shop-container">
+            <div id="shop-arrow" class="shop-item active" onclick="selectTowerType('arrow')">🧙‍♂️ 魔法師 ($50)</div>
+            <div id="shop-cannon" class="shop-item" onclick="selectTowerType('cannon')">🤖 巨神兵 ($100)</div>
+            <div id="shop-ice" class="shop-item" onclick="selectTowerType('ice')">❄️ 寒冰法師 ($75)</div>
+            <div id="shop-tesla" class="shop-item" onclick="selectTowerType('tesla')">⚡ 閃電連鎖 ($120)</div>
+            <div id="shop-gold" class="shop-item" onclick="selectTowerType('gold')">💰 煉金金庫 ($150)</div>
+            <div id="shop-heal" class="shop-item" onclick="selectTowerType('heal')">❤️ 聖光治癒 ($200)</div>
+        </div>
+        <div class="tip-text">
+            💾 <b>實體存檔：</b> 點擊「導出存檔」會自動下載一個 <code>fortress_defense_save.json</code> 文件。點擊「導入存檔」即可上傳該文件，戰線完美銜接！
+        </div>
+    </div>
+
+    <div id="guide-panel">
+        <div class="guide-tabs">
+            <button class="tab-btn active" onclick="switchTab(event, 'tab-merge')">🤝 1. 二合一合成機制</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-growth')">📈 2. 屬性倍率加成</button>
+            <button class="tab-btn" onclick="switchTab(event, 'tab-special')">💎 3. 特殊塔深層奧秘</button>
+        </div>
+        
+        <div id="tab-merge" class="guide-content active">
+            <h3>防禦塔如何進行合成與升級？</h3>
+            <p>本遊戲採用無按鈕的<b>直覺式拖曳合成系統</b>，您可以將低等塔融合成鋼鐵防線：</p>
+            <ul>
+                <li><b>升級方式：</b> 用鼠標左鍵（或手機螢幕長按）按住場上一座防禦塔，拖曳移動到另一座<span class="highlight-cyan">「同類型」且「同等級」</span>的塔上方釋放，即可直接融合成更高一級的新塔。</li>
+                <li><b>等級上限：</b> 每個防禦塔最高可合成升級至 <span class="highlight-gold">Lv.5（滿星）</span>。</li>
+                <li><b>空地重組：</b> 若想調整防線位置，可將塔拖曳到任意「無路徑的空白草地」進行重新對齊。</li>
+            </ul>
+        </div>
+
+        <div id="tab-growth" class="guide-content">
+            <h3>升級後的數值成長曲線</h3>
+            <p>防禦塔在合成升級後，將會獲得多維度的實戰增益。<b>精兵政策往往優於散兵坑：</b></p>
+            <table class="guide-table">
+                <thead>
+                    <tr>
+                        <th>強化項目</th>
+                        <th>核心成長公式 / 實戰增益</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>⚔️ <b>基礎傷害</b></td>
+                        <td>每一級以 <span class="highlight-gold">1.6 倍的指數級</span> 瘋狂暴增。</td>
+                    </tr>
+                    <tr>
+                        <td>⏱️ <b>攻擊冷卻</b></td>
+                        <td>每升一級冷卻減少 12%（攻速變為前一級的 <span class="highlight-cyan">88%</span>），射速大幅提高。</td>
+                    </tr>
+                    <tr>
+                        <td>🎯 <b>射擊範圍</b></td>
+                        <td>每升一級，射程基礎雷達半徑擴大 <span class="highlight-cyan">12%</span>，壓制更廣闊的地圖。</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="tab-special" class="guide-content">
+            <h3>特殊功能塔與異常狀態升級</h3>
+            <p>非直接攻擊型奇蹟，在升級後同樣能為全場戰局帶來扭轉性的增益：</p>
+            <ul>
+                <li><span class="highlight-gold">💰 煉金金庫：</span> 屬於經濟發電廠。每隔 7 秒自動派發利息，產出額度為 <span class="highlight-cyan">$15 × 金庫等級</span>。Lv.5 時每期可穩定賺進 $75！</li>
+                <li><span class="highlight-cyan">❤️ 聖光治癒：</span> 基地守護神。每當順利撐過 60 秒進入下一個波次時，會自動為基地恢復與<span class="highlight-gold">「防禦塔等級等量」</span>的生命值。</li>
+                <li><span class="highlight-cyan">❄️ 寒冰法師：</span> 緩速控制核心。升級能直接加強暴風雪的黏著度，最高可將強敵的移動速度重度壓制 <span class="highlight-gold">85% 緩速</span>。</li>
+                <li><span class="highlight-cyan">⚡ 閃電連鎖：</span> 群體清除利器。每次轟擊會釋放連鎖電網，自動朝周圍額外 3 名敵人進行彈射，造成主彈頭 70% 的擴散雷擊。</li>
+            </ul>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const COLS = 9;
+    const ROWS = 9;
+    
+    let cameraAngle = 0; 
+    let cameraZoom = 0.8; 
+
+    let isDraggingMap = false; 
+    let draggedTower = null;   
+    let dragMX = 0, dragMY = 0; 
+    let startX = 0;
+    let lastTouchDist = 0; 
+    let screenShakeTimer = 0;
+
+    const mapGrid = [
+        [0,0,0,0,0,0,0,0,0],
+        [1,1,1,1,1,0,0,0,0],
+        [0,0,0,0,1,0,0,0,0],
+        [0,0,0,0,1,1,1,0,0],
+        [0,0,0,0,0,0,1,0,0],
+        [0,1,1,1,1,1,1,0,0],
+        [0,1,0,0,0,0,0,0,0],
+        [0,1,1,1,1,1,1,1,2],
+        [0,0,0,0,0,0,0,0,0]
+    ];
+
+    const pathPoints = [
+        {col: 0, row: 1}, {col: 4, row: 1}, {col: 4, row: 3}, {col: 6, row: 3},
+        {col: 6, row: 5}, {col: 1, row: 5}, {col: 1, row: 7}, {col: 8, row: 7}
+    ];
+
+    function switchTab(evt, tabId) {
+        let contents = document.getElementsByClassName('guide-content');
+        for (let i = 0; i < contents.length; i++) {
+            contents[i].classList.remove('active');
+        }
+        let tabs = document.getElementsByClassName('tab-btn');
+        for (let i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove('active');
+        }
+        document.getElementById(tabId).classList.add('active');
+        evt.currentTarget.classList.add('active');
+    }
+
+    function gridToLogical(col, row) {
+        return { x: (col - COLS / 2 + 0.5) * 44, y: (row - ROWS / 2 + 0.5) * 44 };
+    }
+
+    function logicalToCanvas(lx, ly) {
+        let cos = Math.cos(cameraAngle);
+        let sin = Math.sin(cameraAngle);
+        let rx = lx * cos - ly * sin;
+        let ry = lx * sin + ly * cos;
+        let isoX = (rx - ry) * 0.85;
+        let isoY = (rx + ry) * 0.45;
+
+        let shakeX = 0, shakeY = 0;
+        if (screenShakeTimer > 0) {
+            shakeX = (Math.random() - 0.5) * 6;
+            shakeY = (Math.random() - 0.5) * 6;
+        }
+
+        return {
+            x: canvas.width / 2 + isoX * cameraZoom + shakeX,
+            y: canvas.height / 2 + isoY * cameraZoom + shakeY
+        };
+    }
+
+    function canvasToGrid(cx, cy) {
+        let isoX = (cx - canvas.width / 2) / cameraZoom;
+        let isoY = (cy - canvas.height / 2) / cameraZoom;
+        let rx = (isoX / 0.85 + isoY / 0.45) / 2;
+        let ry = (isoY / 0.45 - isoX / 0.85) / 2;
+        let cos = Math.cos(-cameraAngle);
+        let sin = Math.sin(-cameraAngle);
+        return {
+            col: Math.floor((rx * cos - ry * sin) / 44 + COLS / 2),
+            row: Math.floor((rx * sin + ry * cos) / 44 + ROWS / 2)
+        };
+    }
+
+    let gameState = { wave: 1, waveTimeLeft: 60, gold: 300, hp: 20, towers: [] };
+    let selectedTowerType = 'arrow'; 
+    let enemies = [];
+    let projectiles = [];
+    let particles = [];      
+    let damageTexts = [];    
+    let lastTime = performance.now();
+    let startClickX = 0, startClickY = 0; 
+    let spawnTimer = 0;
+    let waveTimerCounter = 0;
+
+    const TOWER_TYPES = {
+        arrow: { name: "魔法師", cost: 50, emoji: '🧙‍♂️', projectile: '⚡', damage: 22, range: 130, cd: 900, isUtility: false },
+        cannon: { name: "巨神兵", cost: 100, emoji: '🤖', projectile: '🔥', damage: 55, range: 110, cd: 1600, isUtility: false },
+        ice: { name: "寒冰法師", cost: 75, emoji: '❄️', projectile: '❄️', damage: 12, range: 125, cd: 1000, isUtility: false },
+        tesla: { name: "閃電連鎖", cost: 120, emoji: '⚡', projectile: '✨', damage: 18, range: 140, cd: 1200, isUtility: false },
+        gold: { name: "煉金金庫", cost: 150, emoji: '💰', projectile: '', damage: 0, range: 0, cd: 7000, isUtility: true },
+        heal: { name: "聖光治癒", cost: 200, emoji: '❤️', projectile: '', damage: 0, range: 0, cd: 0, isUtility: true }
+    };
+
+    // ==========================================
+    //  WEB AUDIO 系統 
+    // ==========================================
+    let audioCtx = null;
+    let isMusicPlaying = false;
+    let musicIntervalId = null;
+    let musicStep = 0;
+
+    const CRYSTAL_MELODY = [
+        [440.00, 880.00], [698.46, 1396.92], [659.25, 1318.51], [587.33, 1174.66]   
+    ];
+
+    function tryInitAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    window.addEventListener('click', () => {
+        tryInitAudio();
+        if(audioCtx && !isMusicPlaying) {
+            startMusicLoop();
+        }
+    });
+    window.addEventListener('touchstart', () => { tryInitAudio(); });
+
+    function toggleMusic() {
+        tryInitAudio();
+        if (isMusicPlaying) {
+            stopMusicLoop();
+        } else {
+            startMusicLoop();
+        }
+    }
+
+    function startMusicLoop() {
+        if (isMusicPlaying) return;
+        isMusicPlaying = true;
+        document.getElementById('btn-audio').innerText = "🔊 音樂：播放中";
+        document.getElementById('btn-audio').style.background = "linear-gradient(135deg, #10b981, #059669)";
+        musicIntervalId = setInterval(playMusicTick, 240); 
+    }
+
+    function stopMusicLoop() {
+        isMusicPlaying = false;
+        document.getElementById('btn-audio').innerText = "🔇 音樂：靜音";
+        document.getElementById('btn-audio').style.background = "linear-gradient(135deg, #ef4444, #cc3333)";
+        clearInterval(musicIntervalId);
+    }
+
+    function playMusicTick() {
+        if (!audioCtx || !isMusicPlaying) return;
+        let t = audioCtx.currentTime;
+        let chordIdx = Math.floor(musicStep / 4) % CRYSTAL_MELODY.length;
+        let beatInChord = musicStep % 4;
+
+        let oscPluck = audioCtx.createOscillator();
+        let gainPluck = audioCtx.createGain();
+        oscPluck.type = 'sine'; 
+        
+        let freq = (beatInChord === 0 || beatInChord === 2) ? CRYSTAL_MELODY[chordIdx][0] : CRYSTAL_MELODY[chordIdx][0] * 1.5;
+        oscPluck.frequency.setValueAtTime(freq, t);
+
+        gainPluck.gain.setValueAtTime(0.045, t); 
+        gainPluck.gain.exponentialRampToValueAtTime(0.0005, t + 0.15); 
+
+        oscPluck.connect(gainPluck);
+        gainPluck.connect(audioCtx.destination);
+        oscPluck.start(t);
+        oscPluck.stop(t + 0.17);
+
+        if (musicStep % 8 === 0) {
+            let oscPad = audioCtx.createOscillator();
+            let gainPad = audioCtx.createGain();
+            oscPad.type = 'sine';
+            oscPad.frequency.setValueAtTime(CRYSTAL_MELODY[chordIdx][1], t);
+
+            gainPad.gain.setValueAtTime(0.0, t);
+            gainPad.gain.linearRampToValueAtTime(0.015, t + 0.6);
+            gainPad.gain.exponentialRampToValueAtTime(0.0005, t + 1.8);
+
+            oscPad.connect(gainPad);
+            gainPad.connect(audioCtx.destination);
+            oscPad.start(t);
+            oscPad.stop(t + 1.9);
+        }
+
+        if (beatInChord === 1 || beatInChord === 3) {
+            let oscHat = audioCtx.createOscillator();
+            let gainHat = audioCtx.createGain();
+            oscHat.type = 'sine';
+            oscHat.frequency.setValueAtTime(8500, t); 
+
+            gainHat.gain.setValueAtTime(0.008, t);
+            gainHat.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+
+            oscHat.connect(gainHat);
+            gainHat.connect(audioCtx.destination);
+            oscHat.start(t);
+            oscHat.stop(t + 0.03);
+        }
+
+        musicStep++;
+    }
+
+    function playSound(type) {
+        if (!audioCtx) return;
+        tryInitAudio();
+        let t = audioCtx.currentTime;
+
+        if (type === 'build') { 
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1046.50, t); 
+            osc.frequency.exponentialRampToValueAtTime(1975.53, t + 0.1); 
+            gain.gain.setValueAtTime(0.08, t);
+            gain.gain.exponentialRampToValueAtTime(0.005, t + 0.11);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(t); osc.stop(t + 0.12);
+        } 
+        else if (type === 'merge') { 
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1760.00, t); 
+            osc.frequency.setValueAtTime(3520.00, t + 0.05); 
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.005, t + 0.18);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(t); osc.stop(t + 0.19);
+        }
+        else if (type === 'hurt') { 
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(520, t);
+            osc.frequency.linearRampToValueAtTime(240, t + 0.18);
+            gain.gain.setValueAtTime(0.15, t);
+            gain.gain.linearRampToValueAtTime(0.005, t + 0.19);
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.start(t); osc.stop(t + 0.2);
+        }
+    }
+
+    // ==========================================
+    //  新增與改造：本地端 JSON 檔案導出與導入
+    // ==========================================
+    function exportGame() {
+        try {
+            // 剔除暫時性的發射計時變數，只保留存檔核心資料
+            const savedTowers = gameState.towers.map(t => ({
+                x: t.x, y: t.y, type: t.type, level: t.level
+            }));
+            const exportData = {
+                wave: gameState.wave,
+                waveTimeLeft: gameState.waveTimeLeft,
+                gold: gameState.gold,
+                hp: gameState.hp,
+                towers: savedTowers
+            };
+
+            // 將資料物件序列化為格式良好的 JSON 字串
+            const jsonString = JSON.stringify(exportData, null, 4);
+            
+            // 建立一個 Blob，指定為 JSON 媒體類型
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            
+            // 建立一個虛擬 <a> 標籤，並自動模擬點擊下載
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.href = url;
+            downloadAnchor.download = `fortress_defense_save.json`;
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            
+            // 釋放記憶體
+            document.body.removeChild(downloadAnchor);
+            URL.revokeObjectURL(url);
+
+            let centerPos = gridToLogical(4, 4);
+            damageTexts.push({ lx: centerPos.x, ly: centerPos.y, text: "JSON存檔已下載！", color: '#10b981', alpha: 1.5, yOffset: 20 });
+        } catch (e) {
+            alert("導出 JSON 存檔失敗，發生未知錯誤！");
+        }
+    }
+
+    function importGame() {
+        // 動態建立一個隱藏的檔案選擇器
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.accept = '.json';
+
+        // 當用戶選擇了檔案
+        fileInput.onchange = (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const parsedData = JSON.parse(e.target.result);
+
+                    // 驗證 JSON 結構的合法性
+                    if (typeof parsedData.wave === 'number' && typeof parsedData.gold === 'number' && Array.isArray(parsedData.towers)) {
+                        // 補回運行時的發射冷卻計時
+                        parsedData.towers.forEach(t => t.lastShot = performance.now());
+                        
+                        // 更新主遊戲狀態
+                        gameState = {
+                            wave: parsedData.wave,
+                            waveTimeLeft: parsedData.waveTimeLeft || 60,
+                            gold: parsedData.gold,
+                            hp: parsedData.hp !== undefined ? parsedData.hp : 20,
+                            towers: parsedData.towers
+                        };
+
+                        // 乾淨清空當前的即時彈頭與怪物
+                        enemies = []; projectiles = []; particles = []; damageTexts = [];
+
+                        updateUI();
+                        autoSave();
+                        playSound('merge'); // 播放成功的清脆提示音
+                        alert("🎉 本地端 JSON 存檔載入完成！防線已完美對齊。");
+                    } else {
+                        alert("❌ 導入失敗：該 JSON 文件的數據結構與遊戲不吻合！");
+                    }
+                } catch (err) {
+                    alert("❌ 導入失敗：文件內容無法被正確解析為 JSON，請確認是否損毀。");
+                }
+            };
+            reader.readAsText(file);
+        };
+
+        // 觸發點擊，開啟系統檔案選取
+        fileInput.click();
+    }
+
+    function selectTowerType(type) {
+        selectedTowerType = type;
+        Object.keys(TOWER_TYPES).forEach(k => {
+            document.getElementById(`shop-${k}`).classList.remove('active');
+        });
+        document.getElementById(`shop-${type}`).classList.add('active');
+    }
+
+    window.onload = () => {
+        loadGame();
+        setupInputListeners();
+        requestAnimationFrame(gameLoop);
+    };
+
+    function setupInputListeners() {
+        canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            let zoomFactor = e.deltaY < 0 ? 0.06 : -0.06;
+            cameraZoom = Math.min(2.0, Math.max(0.4, cameraZoom + zoomFactor));
+        }, { passive: false });
+
+        canvas.addEventListener('mousedown', (e) => {
+            tryInitAudio();
+            const rect = canvas.getBoundingClientRect();
+            const mX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+            const mY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+            startClickX = e.clientX; startClickY = e.clientY;
+
+            if (e.button === 2) { 
+                isDraggingMap = true; startX = e.clientX;
+            } else if (e.button === 0) { 
+                const { col, row } = canvasToGrid(mX, mY);
+                let t = gameState.towers.find(tower => tower.x === col && tower.y === row);
+                if (t) { draggedTower = t; dragMX = mX; dragMY = mY; }
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingMap) {
+                let dx = e.clientX - startX; cameraAngle += dx * 0.008; startX = e.clientX;
+            } else if (draggedTower) {
+                const rect = canvas.getBoundingClientRect();
+                dragMX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+                dragMY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+            }
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            if (e.button === 2) { isDraggingMap = false; return; }
+            if (e.button === 0) {
+                let moveDist = Math.hypot(e.clientX - startClickX, e.clientY - startClickY);
+                const rect = canvas.getBoundingClientRect();
+                const mX = ((e.clientX - rect.left) / rect.width) * canvas.width;
+                const mY = ((e.clientY - rect.top) / rect.height) * canvas.height;
+                const { col, row } = canvasToGrid(mX, mY);
+
+                if (draggedTower) {
+                    if (moveDist > 8 && row >= 0 && row < ROWS && col >= 0 && col < COLS && mapGrid[row][col] === 0) {
+                        let targetTower = gameState.towers.find(t => t.x === col && t.y === row && t !== draggedTower);
+                        if (targetTower) {
+                            if (targetTower.type === draggedTower.type && targetTower.level === draggedTower.level && targetTower.level < 5) {
+                                targetTower.level++;
+                                let idx = gameState.towers.indexOf(draggedTower);
+                                if (idx > -1) gameState.towers.splice(idx, 1);
+
+                                playSound('merge'); 
+                                let logPos = gridToLogical(col, row);
+                                damageTexts.push({ lx: logPos.x, ly: logPos.y, text: `★Merge Lv.${targetTower.level}★`, color: '#f59e0b', alpha: 1.2, yOffset: 25 });
+                                for(let k=0; k<6; k++) particles.push({ lx: logPos.x, ly: logPos.y, vx: (Math.random()-0.5)*5, vy: (Math.random()-0.5)*5-2, color: '#fef08a', life: 1.0 });
+                            }
+                        } else {
+                            draggedTower.x = col; draggedTower.y = row;
+                        }
+                    }
+                    draggedTower = null;
+                } else {
+                    if (moveDist <= 8 && row >= 0 && row < ROWS && col >= 0 && col < COLS && mapGrid[row][col] === 0) {
+                        let hasTower = gameState.towers.find(t => t.x === col && t.y === row);
+                        if (!hasTower) {
+                            let config = TOWER_TYPES[selectedTowerType];
+                            if (gameState.gold >= config.cost) {
+                                gameState.gold -= config.cost;
+                                gameState.towers.push({ x: col, y: row, type: selectedTowerType, level: 1, lastShot: performance.now() });
+                                playSound('build'); 
+                                let logPos = gridToLogical(col, row);
+                                for(let k=0; k<4; k++) particles.push({ lx: logPos.x, ly: logPos.y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4-1, color: '#90e0ef', life: 0.8 });
+                            } else {
+                                damageTexts.push({ lx: (col - COLS / 2 + 0.5) * 44, ly: (row - ROWS / 2 + 0.5) * 44, text: `金幣不足 $${config.cost}`, color: '#ff0054', alpha: 1.0, yOffset: 15 });
+                            }
+                        }
+                    }
+                }
+                updateUI(); autoSave();
+            }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            tryInitAudio();
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches.length === 1) {
+                let tX = ((e.touches[0].clientX - rect.left) / rect.width) * canvas.width;
+                let tY = ((e.touches[0].clientY - rect.top) / rect.height) * canvas.height;
+                startClickX = e.touches[0].clientX; startClickY = e.touches[0].clientY;
+                const { col, row } = canvasToGrid(tX, tY);
+                let t = gameState.towers.find(tower => tower.x === col && tower.y === row);
+                if (t) { draggedTower = t; dragMX = tX; dragMY = tY; }
+            } else if (e.touches.length === 2) {
+                draggedTower = null;
+                let dx = e.touches[0].clientX - e.touches[1].clientX;
+                let dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDist = Math.hypot(dx, dy); startX = e.touches[0].clientX;
+            }
+        }, { passive: true });
+
+        canvas.addEventListener('touchmove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            if (e.touches.length === 1 && draggedTower) {
+                if (e.cancelable) e.preventDefault();
+                dragMX = ((e.touches[0].clientX - rect.left) / rect.width) * canvas.width;
+                dragMY = ((e.touches[0].clientY - rect.top) / rect.height) * canvas.height;
+            } else if (e.touches.length === 2) {
+                if (e.cancelable) e.preventDefault();
+                let dx = e.touches[0].clientX - startX; cameraAngle += dx * 0.005; startX = e.touches[0].clientX;
+                let tdx = e.touches[0].clientX - e.touches[1].clientX;
+                let tdy = e.touches[0].clientY - e.touches[1].clientY;
+                let thisDist = Math.hypot(tdx, tdy);
+                if (lastTouchDist > 0) {
+                    let factor = (thisDist - lastTouchDist) * 0.005;
+                    cameraZoom = Math.min(2.0, Math.max(0.4, cameraZoom + factor));
+                }
+                lastTouchDist = thisDist;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            if (draggedTower) {
+                let moveDist = Math.hypot(dragMX - ((startClickX - rect.left)/rect.width)*canvas.width, dragMY - ((startClickY - rect.top)/rect.height)*canvas.height);
+                const { col, row } = canvasToGrid(dragMX, dragMY);
+                if (moveDist > 12 && row >= 0 && row < ROWS && col >= 0 && col < COLS && mapGrid[row][col] === 0) {
+                    let targetTower = gameState.towers.find(t => t.x === col && t.y === row && t !== draggedTower);
+                    if (targetTower && targetTower.type === draggedTower.type && targetTower.level === draggedTower.level && targetTower.level < 5) {
+                        targetTower.level++;
+                        let idx = gameState.towers.indexOf(draggedTower);
+                        if (idx > -1) gameState.towers.splice(idx, 1);
+                        playSound('merge');
+                    } else if(!targetTower) { draggedTower.x = col; draggedTower.y = row; }
+                }
+                draggedTower = null;
+            } else if (e.changedTouches.length === 1 && e.touches.length === 0) {
+                let endX = e.changedTouches[0].clientX; let endY = e.changedTouches[0].clientY;
+                let moveDist = Math.hypot(endX - startClickX, endY - startClickY);
+                if (moveDist <= 10) {
+                    let tX = ((endX - rect.left) / rect.width) * canvas.width;
+                    let tY = ((endY - rect.top) / rect.height) * canvas.height;
+                    const { col, row } = canvasToGrid(tX, tY);
+                    if (row >= 0 && row < ROWS && col >= 0 && col < COLS && mapGrid[row][col] === 0) {
+                        let hasTower = gameState.towers.find(t => t.x === col && t.y === row);
+                        if (!hasTower) {
+                            let config = TOWER_TYPES[selectedTowerType];
+                            if (gameState.gold >= config.cost) {
+                                gameState.gold -= config.cost;
+                                gameState.towers.push({ x: col, y: row, type: selectedTowerType, level: 1, lastShot: performance.now() });
+                                playSound('build');
+                            }
+                        }
+                    }
+                }
+            }
+            if (e.touches.length < 2) lastTouchDist = 0;
+            updateUI(); autoSave();
+        });
+    }
+
+    function gameLoop(timestamp) {
+        let dt = timestamp - lastTime;
+        if (dt > 100 || dt <= 0) dt = 16.66; 
+        lastTime = timestamp;
+        updateLogic(dt);
+        renderScene();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updateLogic(dt) {
+        if (screenShakeTimer > 0) screenShakeTimer -= dt;
+
+        waveTimerCounter += dt;
+        if (waveTimerCounter >= 1000) {
+            waveTimerCounter -= 1000;
+            gameState.waveTimeLeft--;
+            if (gameState.waveTimeLeft <= 0) {
+                gameState.wave++;
+                gameState.waveTimeLeft = 60;
+                
+                let healAmount = 0;
+                gameState.towers.forEach(t => {
+                    if (t.type === 'heal') healAmount += t.level; 
+                });
+                if (healAmount > 0) {
+                    gameState.hp = Math.min(20, gameState.hp + healAmount);
+                    let basePos = gridToLogical(8, 7);
+                    damageTexts.push({ lx: basePos.x, ly: basePos.y, text: `+${healAmount} HP`, color: '#00f5d4', alpha: 1.5, yOffset: 30 });
+                }
+
+                gameState.gold += 55 + (gameState.wave * 10);
+                autoSave();
+            }
+            updateUI();
+        }
+
+        let now = performance.now();
+        gameState.towers.forEach(t => {
+            if (t.type === 'gold') {
+                let config = TOWER_TYPES.gold;
+                if (now - t.lastShot >= config.cd) {
+                    let earnings = 15 * t.level; 
+                    gameState.gold += earnings;
+                    let logPos = gridToLogical(t.x, t.y);
+                    damageTexts.push({ lx: logPos.x, ly: logPos.y, text: `+$${earnings}`, color: '#f59e0b', alpha: 1.0, yOffset: 15 });
+                    t.lastShot = now;
+                    updateUI();
+                }
+            }
+        });
+
+        spawnTimer += dt;
+        let spawnInterval = Math.max(1000, 3000 - (gameState.wave * 110));
+        if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0;
+            let typeRoll = Math.random();
+            let mBaseSpeed = 0.005, mHp = 35 + (gameState.wave * 25), mEmoji = '👾', mReward = 12 + gameState.wave;
+
+            if (typeRoll > 0.7) { mBaseSpeed = 0.011; mHp *= 0.5; mEmoji = '🦎'; }
+            else if (typeRoll > 0.5 && gameState.wave >= 3) { mBaseSpeed = 0.002; mHp *= 3.0; mEmoji = '🗿'; mReward *= 2; }
+
+            enemies.push({
+                id: Math.random(), gridProgress: 0.0, pathIndex: 0,
+                hp: mHp, maxHp: mHp, baseSpeed: mBaseSpeed, speed: mBaseSpeed, emoji: mEmoji, reward: mReward,
+                currentCol: pathPoints[0].col, currentRow: pathPoints[0].row, slowTimer: 0
+            });
+        }
+
+        let speedMultiplier = dt / 16.66;
+        
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            let e = enemies[i];
+            if (e.slowTimer > 0) {
+                e.slowTimer -= dt;
+                if (e.slowTimer <= 0) e.speed = e.baseSpeed; 
+            }
+            e.gridProgress += e.speed * speedMultiplier;
+            if (e.gridProgress >= 1.0) {
+                e.gridProgress = 0.0; e.pathIndex++;
+                if (e.pathIndex >= pathPoints.length - 1) {
+                    gameState.hp--; 
+                    playSound('hurt'); 
+                    screenShakeTimer = 200; enemies.splice(i, 1); updateUI();
+                    if (gameState.hp <= 0) { alert("要塞失守！"); resetGame(); }
+                    continue;
+                }
+            }
+            let startNode = pathPoints[e.pathIndex]; let endNode = pathPoints[e.pathIndex + 1];
+            if(startNode && endNode) {
+                e.currentCol = startNode.col + (endNode.col - startNode.col) * e.gridProgress;
+                e.currentRow = startNode.row + (endNode.row - startNode.row) * e.gridProgress;
+            }
+        }
+
+        gameState.towers.forEach(t => {
+            if (t === draggedTower) return; 
+            let config = TOWER_TYPES[t.type];
+            if (config.isUtility) return; 
+
+            let currentCd = config.cd * Math.pow(0.88, t.level - 1);
+            let currentRange = config.range * (1 + (t.level - 1) * 0.12);
+
+            if (now - t.lastShot >= currentCd) {
+                let target = null; let minDist = currentRange / 44;
+                enemies.forEach(e => {
+                    let d = Math.hypot(e.currentCol - t.x, e.currentRow - t.y);
+                    if (d < minDist) { minDist = d; target = e; }
+                });
+
+                if (target) {
+                    let finalDmg = Math.round(config.damage * Math.pow(1.6, t.level - 1));
+                    projectiles.push({
+                        pCol: t.x, pRow: t.y, targetId: target.id, speed: 0.14,
+                        damage: finalDmg, emoji: config.projectile, heightOffset: 26,
+                        type: t.type, level: t.level
+                    });
+                    t.lastShot = now;
+                }
+            }
+        });
+
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i]; let actualTarget = enemies.find(e => e.id === p.targetId);
+            if (!actualTarget) { projectiles.splice(i, 1); continue; }
+
+            let dc = actualTarget.currentCol - p.pCol; let dr = actualTarget.currentRow - p.pRow;
+            let dist = Math.hypot(dc, dr);
+
+            if (dist <= 0.28 || dist <= p.speed * speedMultiplier) {
+                actualTarget.hp -= p.damage;
+                let logPos = gridToLogical(actualTarget.currentCol, actualTarget.currentRow);
+                
+                if (p.type === 'ice') {
+                    let slowPercent = 0.3 + (p.level * 0.1); 
+                    actualTarget.speed = actualTarget.baseSpeed * (1 - Math.min(0.85, slowPercent));
+                    actualTarget.slowTimer = 2500; 
+                }
+
+                if (p.type === 'tesla') {
+                    let jumped = 0;
+                    enemies.forEach(other => {
+                        if (other.id !== actualTarget.id && jumped < 3) {
+                            let nearDist = Math.hypot(other.currentCol - actualTarget.currentCol, other.currentRow - actualTarget.currentRow);
+                            if (nearDist < 2.5) { 
+                                other.hp -= Math.round(p.damage * 0.7); 
+                                jumped++;
+                                let jPos = gridToLogical(other.currentCol, other.currentRow);
+                                damageTexts.push({ lx: jPos.x, ly: jPos.y, text: `⚡${Math.round(p.damage*0.7)}`, color: '#00f5d4', alpha: 0.8, yOffset: 8 });
+                            }
+                        }
+                    });
+                }
+
+                damageTexts.push({ lx: logPos.x, ly: logPos.y, text: `-${p.damage}`, color: p.type === 'ice' ? '#90e0ef' : '#ff0054', alpha: 1.0, yOffset: 10 });
+                for (let k = 0; k < 4; k++) particles.push({ lx: logPos.x, ly: logPos.y, vx: (Math.random()-0.5)*4, vy: (Math.random()-0.5)*4-1, color: '#caf0f8', life: 1.0 });
+                
+                if (actualTarget.hp <= 0) {
+                    let idx = enemies.indexOf(actualTarget);
+                    if (idx > -1) { gameState.gold += enemies[idx].reward; enemies.splice(idx, 1); updateUI(); }
+                }
+                projectiles.splice(i, 1); 
+            } else {
+                p.pCol += (dc / dist) * p.speed * speedMultiplier;
+                p.pRow += (dr / dist) * p.speed * speedMultiplier;
+            }
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let pt = particles[i]; pt.lx += pt.vx * speedMultiplier; pt.ly += pt.vy * speedMultiplier; pt.life -= 0.05 * speedMultiplier;
+            if (pt.life <= 0) particles.splice(i, 1);
+        }
+        for (let i = damageTexts.length - 1; i >= 0; i--) {
+            let txt = damageTexts[i]; txt.yOffset += 0.8 * speedMultiplier; txt.alpha -= 0.03 * speedMultiplier;
+            if (txt.alpha <= 0) damageTexts.splice(i, 1);
+        }
+    }
+
+    function renderScene() {
+        ctx.fillStyle = '#4ea8de'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        let gradient = ctx.createRadialGradient(canvas.width/2, canvas.height/2, 20, canvas.width/2, canvas.height/2, 460);
+        gradient.addColorStop(0, '#90e0ef'); gradient.addColorStop(0.6, '#4ea8de'); gradient.addColorStop(1, '#0077b6');
+        ctx.fillStyle = gradient; ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                let type = mapGrid[r][c];
+                let pTop = logicalToCanvas((c - COLS/2) * 44, (r - ROWS/2) * 44);
+                let pRight = logicalToCanvas((c - COLS/2 + 1) * 44, (r - ROWS/2) * 44);
+                let pBottom = logicalToCanvas((c - COLS/2 + 1) * 44, (r - ROWS/2 + 1) * 44);
+                let pLeft = logicalToCanvas((c - COLS/2) * 44, (r - ROWS/2 + 1) * 44);
+
+                ctx.beginPath(); ctx.moveTo(pTop.x, pTop.y); ctx.lineTo(pRight.x, pRight.y); ctx.lineTo(pBottom.x, pBottom.y); ctx.lineTo(pLeft.x, pLeft.y); ctx.closePath();
+
+                if (type === 1) ctx.fillStyle = '#0096c7';
+                else if (type === 2) ctx.fillStyle = '#f59e0b';
+                else ctx.fillStyle = '#caf0f8';
+                ctx.fill(); ctx.strokeStyle = 'rgba(0, 119, 182, 0.15)'; ctx.stroke();
+
+                let tower = gameState.towers.find(t => t.x === c && t.y === r);
+                if (tower && tower !== draggedTower) {
+                    let cfg = TOWER_TYPES[tower.type];
+                    let center = logicalToCanvas((c - COLS/2 + 0.5) * 44, (r - ROWS/2 + 0.5) * 44);
+                    ctx.font = `${Math.round(28 * cameraZoom)}px sans-serif`;
+                    ctx.textBaseline = "bottom"; ctx.textAlign = "center";
+                    ctx.fillText(cfg.emoji, center.x, center.y + 6 * cameraZoom);
+
+                    ctx.font = `bold ${Math.round(11 * cameraZoom)}px sans-serif`;
+                    ctx.fillStyle = '#03045e';
+                    ctx.fillText(`Lv.${tower.level}`, center.x, center.y - 20 * cameraZoom);
+                }
+
+                if (type === 2) {
+                    let center = logicalToCanvas((c - COLS/2 + 0.5) * 44, (r - ROWS/2 + 0.5) * 44);
+                    ctx.font = `${Math.round(38 * cameraZoom)}px sans-serif`;
+                    ctx.fillText('🏰', center.x, center.y + 8 * cameraZoom);
+                }
+            }
+        }
+
+        enemies.forEach(e => {
+            let pos = logicalToCanvas((e.currentCol - COLS/2) * 44, (e.currentRow - ROWS/2) * 44);
+            ctx.font = `${Math.round(26 * cameraZoom)}px sans-serif`;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(e.emoji, pos.x, pos.y);
+            
+            if (e.slowTimer > 0) {
+                ctx.font = `${Math.round(14 * cameraZoom)}px sans-serif`;
+                ctx.fillText('❄️', pos.x + 14 * cameraZoom, pos.y - 12 * cameraZoom);
+            }
+
+            let barW = 26 * cameraZoom;
+            ctx.fillStyle = '#03045e'; ctx.fillRect(pos.x - barW/2, pos.y - 20 * cameraZoom, barW, 4);
+            ctx.fillStyle = '#ff0054'; ctx.fillRect(pos.x - barW/2, pos.y - 20 * cameraZoom, Math.max(0, barW * (e.hp / e.maxHp)), 4);
+        });
+
+        projectiles.forEach(p => {
+            let pos = logicalToCanvas((p.pCol - COLS/2) * 44, (p.pRow - ROWS/2) * 44);
+            ctx.font = `${Math.round(20 * cameraZoom)}px sans-serif`;
+            ctx.fillText(p.emoji, pos.x, pos.y - p.heightOffset * 0.4 * cameraZoom);
+        });
+
+        if (draggedTower) {
+            let cfg = TOWER_TYPES[draggedTower.type];
+            ctx.save(); ctx.shadowBlur = 15; ctx.shadowColor = "rgba(0,0,0,0.4)";
+            ctx.font = `${Math.round(36 * cameraZoom)}px sans-serif`; 
+            ctx.textAlign = "center"; ctx.textBaseline = "middle";
+            ctx.fillText(cfg.emoji, dragMX, dragMY - 15); 
+            ctx.font = `bold 12px sans-serif`; ctx.fillStyle = '#f59e0b';
+            ctx.fillText(`Lv.${draggedTower.level}`, dragMX, dragMY - 40);
+            ctx.restore();
+        }
+
+        particles.forEach(pt => {
+            let pos = logicalToCanvas(pt.lx, pt.ly); ctx.fillStyle = pt.color; ctx.globalAlpha = Math.max(0, pt.life);
+            ctx.beginPath(); ctx.arc(pos.x, pos.y, 4 * cameraZoom, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.globalAlpha = 1.0;
+
+        damageTexts.forEach(txt => {
+            let pos = logicalToCanvas(txt.lx, txt.ly); ctx.font = `bold ${Math.round(15 * cameraZoom)}px Arial`;
+            ctx.fillStyle = txt.color; ctx.globalAlpha = Math.max(0, txt.alpha);
+            ctx.fillText(txt.text, pos.x, pos.y - txt.yOffset * cameraZoom);
+        });
+        ctx.globalAlpha = 1.0;
+    }
+
+    function updateUI() {
+        document.getElementById('lbl-wave').innerText = gameState.wave;
+        document.getElementById('lbl-time').innerText = gameState.waveTimeLeft;
+        document.getElementById('lbl-gold').innerText = gameState.gold;
+        document.getElementById('lbl-hp').innerText = gameState.hp;
+    }
+
+    function autoSave() { localStorage.setItem('fortress_6towers_audio_save5', JSON.stringify(gameState)); }
+    function loadGame() {
+        let saved = localStorage.getItem('fortress_6towers_audio_save5');
+        if (saved) {
+            try {
+                gameState = JSON.parse(saved);
+                gameState.towers.forEach(t => t.lastShot = performance.now());
+                updateUI();
+            } catch(e) {}
+        }
+    }
+    function resetGame() {
+        if (!confirm("確定要重設目前關卡並清空所有防禦塔嗎？")) return;
+        gameState = { wave: 1, waveTimeLeft: 60, gold: 300, hp: 20, towers: [] };
+        enemies = []; projectiles = []; particles = []; damageTexts = []; draggedTower = null;
+        autoSave(); updateUI();
+    }
+</script>
+</body>
+</html>
